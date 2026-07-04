@@ -3,7 +3,7 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>動画サイト - 本格レイアウト＆機能追加版</title>
+  <title>動画サイト - Googleログイン＆弾幕PiP対応版</title>
   <style>
     body { margin: 0; font-family: 'Helvetica Neue', Arial, sans-serif; background-color: #f9f9f9; color: #0f0f0f; }
     header { display: flex; justify-content: space-between; align-items: center; padding: 10px 24px; height: 56px; background-color: white; box-shadow: 0 1px 3px rgba(0,0,0,0.1); position: sticky; top: 0; z-index: 100;}
@@ -38,7 +38,7 @@
     .preview-area { flex: 1; background-color: #f9f9f9; padding: 16px; border-radius: 4px; height: fit-content; }
     .preview-area video { width: 100%; border-radius: 4px; background-color: black; }
     .modal-footer { display: flex; justify-content: space-between; align-items: center; padding: 16px 24px; border-top: 1px solid #e5e5e5; }
-    .save-btn { background-color: #0f0f0f; color: white; border: none; padding: 10px 24px; font-size: 14px; font-weight: bold; border-radius: 20px; cursor: pointer; }
+    .save-btn { background-color: #0f0f0f; color: white; border: none; padding: 10px 24px; font-size: 14px; font-weight: bold; border-radius: 20px; cursor: pointer; width: 100%; box-sizing: border-box; }
 
     /* ログイン／新規登録モーダル */
     .auth-modal-content { max-width: 400px; height: auto; }
@@ -46,6 +46,8 @@
     .auth-error { color: #cc0000; font-size: 13px; display: none; }
     .auth-switch { font-size: 13px; text-align: center; color: #606060; }
     .auth-switch a { color: #065fd4; cursor: pointer; font-weight: bold; }
+    .google-btn { background-color: #4285F4; color: white; border: none; padding: 10px 24px; font-size: 14px; font-weight: bold; border-radius: 20px; cursor: pointer; width: 100%; display: flex; justify-content: center; align-items: center; gap: 10px; }
+    .google-btn:hover { background-color: #3367D6; }
 
     /* ホーム・チャンネル共通レイアウト */
     .home-container, .channel-container { max-width: 1280px; margin: 40px auto; padding: 0 24px; }
@@ -79,7 +81,7 @@
       .watch-sidebar { width: 100%; }
     }
 
-    .main-video-player { width: 100%; aspect-ratio: 16/9; background-color: #000; border-radius: 12px; margin-bottom: 16px; outline: none; }
+    .main-video-player { width: 100%; height: 100%; background-color: #000; outline: none; }
     .video-meta-bar { display: flex; justify-content: space-between; align-items: flex-start; flex-wrap: wrap; gap: 12px; margin-bottom: 12px; }
     .title-area { flex: 1; }
     .video-title { font-size: 20px; font-weight: bold; margin: 0 0 8px 0; line-height: 1.4; }
@@ -121,7 +123,7 @@
     .comment-avatar { width: 40px; height: 40px; border-radius: 50%; background-color: #065fd4; color: white; display: flex; align-items: center; justify-content: center; font-weight: bold; flex-shrink: 0; }
     .comment-input-area input { flex: 1; padding: 8px 0; border: none; border-bottom: 1px solid #ccc; font-size: 14px; outline: none; background: transparent; }
     .comment-input-area input:focus { border-bottom: 2px solid #0f0f0f; padding-bottom: 7px; }
-    .comment-input-area button { background-color: #065fd4; color: white; border: none; padding: 10px 20px; border-radius: 20px; cursor: pointer; font-weight: bold; font-size: 14px;}
+    .comment-input-area button { background-color: #065fd4; color: white; border: none; padding: 10px 20px; border-radius: 20px; cursor: pointer; font-weight: bold; font-size: 14px; width: auto;}
     .comment-input-area button:disabled { background-color: #ccc; cursor: not-allowed; }
     .comment-list { display: flex; flex-direction: column; gap: 20px; }
     .comment-item { display: flex; gap: 12px; }
@@ -134,7 +136,9 @@
 
     /* ニコニコ風「弾幕」 */
     .video-wrapper { position: relative; width: 100%; aspect-ratio: 16/9; margin-bottom: 12px; overflow: hidden; background-color: #000; border-radius: 12px; }
-    .video-wrapper video { width: 100%; height: 100%; }
+    /* Document PiP が作動したときの全画面用スタイル */
+    .video-wrapper.in-pip { margin: 0; border-radius: 0; width: 100vw; height: 100vh; }
+    
     .danmaku-container { position: absolute; top: 0; left: 0; width: 100%; height: 100%; pointer-events: none; overflow: hidden; z-index: 10; }
     .danmaku-comment {
       position: absolute; white-space: nowrap; font-size: 24px; font-weight: bold; color: white;
@@ -194,7 +198,7 @@
       <!-- 左側：動画本体とコメント -->
       <div class="watch-main">
         <div class="video-wrapper">
-          <video id="mainVideo" controls></video>
+          <video id="mainVideo" class="main-video-player" controls></video>
           <div id="danmakuContainer" class="danmaku-container"></div>
         </div>
 
@@ -207,7 +211,7 @@
             <span id="viewCount">- 回視聴</span>
             <button id="likeBtn" class="rate-btn" disabled>👍 <span id="likeCount">0</span></button>
             <button id="dislikeBtn" class="rate-btn" disabled>👎 <span id="dislikeCount">0</span></button>
-            <button id="pipBtn" class="pip-btn">◱ PiP</button>
+            <button id="pipBtn" class="pip-btn">◱ PiPで弾幕再生</button>
           </div>
         </div>
 
@@ -267,7 +271,6 @@
               <label>説明</label>
               <textarea placeholder="動画の説明を入力"></textarea>
             </div>
-            <!-- 【追加】サムネイル画像の設定 -->
             <div class="input-group">
               <label>サムネイル画像 (任意)</label>
               <input type="file" id="thumbInput" accept="image/*">
@@ -280,9 +283,9 @@
         </div>
         <div class="modal-footer">
           <div></div>
-          <div>
-            <button id="backModalBtn" class="back-btn" style="margin-bottom:0;">戻る</button>
-            <button id="saveBtn" class="save-btn">保存して公開</button>
+          <div style="width: 100%;">
+            <button id="saveBtn" class="save-btn" style="width: 100%;">保存して公開</button>
+            <button id="backModalBtn" class="back-btn" style="width: 100%; margin-top: 8px; text-align: center;">戻る</button>
           </div>
         </div>
       </div>
@@ -310,7 +313,16 @@
           <input type="password" id="authPassword">
         </div>
         <p class="auth-error" id="authErrorMsg"></p>
-        <button id="authSubmitBtn" class="save-btn">ログイン</button>
+        <button id="authSubmitBtn" class="save-btn">メールアドレスでログイン</button>
+        
+        <hr style="margin: 8px 0; border: none; border-top: 1px solid #e5e5e5;">
+        
+        <!-- Googleログインボタン -->
+        <button id="googleAuthBtn" class="google-btn">
+          <svg width="18" height="18" viewBox="0 0 24 24"><path fill="#fff" d="M22.56 12.25c0-.78-.07-1.53-.2-2.25H12v4.26h5.92c-.26 1.37-1.04 2.53-2.21 3.31v2.77h3.57c2.08-1.92 3.28-4.74 3.28-8.09z" fill="#4285F4"/><path fill="#fff" d="M12 23c2.97 0 5.46-.98 7.28-2.66l-3.57-2.77c-.98.66-2.23 1.06-3.71 1.06-2.86 0-5.29-1.93-6.16-4.53H2.18v2.84C3.99 20.53 7.7 23 12 23z" fill="#34A853"/><path fill="#fff" d="M5.84 14.09c-.22-.66-.35-1.36-.35-2.09s.13-1.43.35-2.09V7.07H2.18C1.43 8.55 1 10.22 1 12s.43 3.45 1.18 4.93l2.85-2.22.81-.62z" fill="#FBBC05"/><path fill="#fff" d="M12 5.38c1.62 0 3.06.56 4.21 1.64l3.15-3.15C17.45 2.09 14.97 1 12 1 7.7 1 3.99 3.47 2.18 7.07l3.66 2.84c.87-2.6 3.3-4.53 6.16-4.53z" fill="#EA4335"/></svg>
+          Googleでログイン
+        </button>
+
         <p class="auth-switch">
           <span id="authToggleText">アカウントをお持ちでない方は</span>
           <a id="authToggleLink">新規登録</a>
@@ -320,10 +332,11 @@
   </div>
 
   <script type="module">
+    // Firebaseモジュールに GoogleAuthProvider と signInWithPopup を追加
     import { initializeApp } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-app.js";
     import { getStorage, ref, uploadBytes, uploadBytesResumable, getDownloadURL, listAll, getMetadata, deleteObject } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-storage.js";
     import { getFirestore, collection, addDoc, query, where, onSnapshot, serverTimestamp, doc, getDoc, setDoc, updateDoc, deleteDoc, increment } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore.js";
-    import { getAuth, onAuthStateChanged, createUserWithEmailAndPassword, signInWithEmailAndPassword, signOut } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-auth.js";
+    import { getAuth, onAuthStateChanged, createUserWithEmailAndPassword, signInWithEmailAndPassword, signOut, GoogleAuthProvider, signInWithPopup } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-auth.js";
 
     const firebaseConfig = {
       apiKey: "AIzaSyDvZtc5bs5rb5Xtrel3mVMoTiqHH4LoVkM",
@@ -339,6 +352,7 @@
     const storage = getStorage(app);
     const db = getFirestore(app);
     const auth = getAuth(app);
+    const googleProvider = new GoogleAuthProvider(); // Googleログイン用の準備
 
     function escapeHtml(str) {
       const div = document.createElement('div');
@@ -420,6 +434,7 @@
     const authEmail = document.getElementById('authEmail');
     const authPassword = document.getElementById('authPassword');
     const authSubmitBtn = document.getElementById('authSubmitBtn');
+    const googleAuthBtn = document.getElementById('googleAuthBtn');
     const authErrorMsg = document.getElementById('authErrorMsg');
     const authToggleText = document.getElementById('authToggleText');
     const authToggleLink = document.getElementById('authToggleLink');
@@ -447,7 +462,7 @@
     }
 
     // ==========================================
-    // 認証
+    // 認証処理（メール＆Google）
     // ==========================================
     let authMode = 'login';
     loginOpenBtn.addEventListener('click', () => {
@@ -471,18 +486,19 @@
       if (authMode === 'signup') {
         authModalTitle.textContent = '新規登録';
         signupNameGroup.style.display = 'block';
-        authSubmitBtn.textContent = '登録する';
+        authSubmitBtn.textContent = 'メールアドレスで登録';
         authToggleText.textContent = 'すでにアカウントをお持ちの方は';
         authToggleLink.textContent = 'ログイン';
       } else {
         authModalTitle.textContent = 'ログイン';
         signupNameGroup.style.display = 'none';
-        authSubmitBtn.textContent = 'ログイン';
+        authSubmitBtn.textContent = 'メールアドレスでログイン';
         authToggleText.textContent = 'アカウントをお持ちでない方は';
         authToggleLink.textContent = '新規登録';
       }
     }
 
+    // メールアドレス認証
     authSubmitBtn.addEventListener('click', async () => {
       const email = authEmail.value.trim();
       const password = authPassword.value;
@@ -500,10 +516,35 @@
         }
         authModal.classList.remove('active');
       } catch (error) {
-        authErrorMsg.textContent = "エラー: Live Server等のローカル環境で実行してください。";
+        authErrorMsg.textContent = "ログインに失敗しました。メールアドレスとパスワードを確認してください。";
         authErrorMsg.style.display = 'block';
       } finally {
         authSubmitBtn.disabled = false;
+      }
+    });
+
+    // Google認証
+    googleAuthBtn.addEventListener('click', async () => {
+      authErrorMsg.style.display = 'none';
+      try {
+        const result = await signInWithPopup(auth, googleProvider);
+        const user = result.user;
+        
+        // 初めてのGoogleログインの場合、ユーザーデータを作成する
+        const userRef = doc(db, 'users', user.uid);
+        const snap = await getDoc(userRef);
+        if (!snap.exists()) {
+          await setDoc(userRef, {
+            channelName: user.displayName || 'Googleユーザー',
+            email: user.email,
+            createdAt: serverTimestamp()
+          });
+        }
+        authModal.classList.remove('active');
+      } catch (error) {
+        console.error('Google認証エラー:', error);
+        authErrorMsg.textContent = 'Googleログインに失敗しました。';
+        authErrorMsg.style.display = 'block';
       }
     });
 
@@ -614,7 +655,6 @@
         const gridItem = document.createElement('div');
         gridItem.className = 'grid-item';
         
-        // サムネイルがあればimg、なければvideoタグ
         const mediaHtml = v.thumbUrl 
           ? `<img src="${v.thumbUrl}" class="thumbnail-img">` 
           : `<video src="${v.url}" class="thumbnail-img" muted preload="metadata"></video>`;
@@ -647,7 +687,7 @@
     uploaderNameEl.addEventListener('click', () => {
       const uid = uploaderNameEl.dataset.uid;
       const name = uploaderNameEl.textContent;
-      if (!uid || uid === 'null') return; // ゲストの場合は無効
+      if (!uid || uid === 'null') return; 
       
       homeScreen.style.display = 'none';
       watchScreen.style.display = 'none';
@@ -658,8 +698,10 @@
       renderGrid(userVideos, channelGrid);
       window.scrollTo({ top: 0, behavior: 'smooth' });
       
-      // PiPしていないなら停止
-      if (document.pictureInPictureElement !== mainVideo) {
+      // PiP起動中でなければ再生を止める
+      const isStandardPiP = document.pictureInPictureElement === mainVideo;
+      const isDocumentPiP = ('documentPictureInPicture' in window) && window.documentPictureInPicture.window;
+      if (!isStandardPiP && !isDocumentPiP) {
         mainVideo.pause();
         mainVideo.src = "";
       }
@@ -694,6 +736,11 @@
     // 画面切り替え（視聴・ホーム）
     // ==========================================
     async function watchVideo(videoData) {
+      // Document PiP が開いていれば閉じる（レイアウト崩れ防止）
+      if ('documentPictureInPicture' in window && window.documentPictureInPicture.window) {
+        window.documentPictureInPicture.window.close();
+      }
+
       homeScreen.style.display = 'none';
       channelScreen.style.display = 'none';
       watchScreen.style.display = 'block';
@@ -729,11 +776,14 @@
       channelScreen.style.display = 'none';
       homeScreen.style.display = 'block';
       
-      // 【修正】PiP実行中はバックグラウンドで再生を止めない
-      if (document.pictureInPictureElement !== mainVideo) {
+      // どちらのPiPも起動していなければ再生を止める（PiP中は再生を継続！）
+      const isStandardPiP = document.pictureInPictureElement === mainVideo;
+      const isDocumentPiP = ('documentPictureInPicture' in window) && window.documentPictureInPicture.window;
+      if (!isStandardPiP && !isDocumentPiP) {
         mainVideo.pause();
         mainVideo.src = "";
       }
+      
       window.scrollTo({ top: 0, behavior: 'smooth' });
       loadVideoList();
     }
@@ -742,14 +792,66 @@
     // PiP（ピクチャーインピクチャー）機能
     // ==========================================
     pipBtn.addEventListener('click', async () => {
-      try {
-        if (document.pictureInPictureElement) {
-          await document.exitPictureInPicture();
-        } else if (document.pictureInPictureEnabled) {
-          await mainVideo.requestPictureInPicture();
+      // 最新の「Document Picture-in-Picture API」対応ブラウザの場合
+      if ('documentPictureInPicture' in window) {
+        try {
+          if (window.documentPictureInPicture.window) {
+            window.documentPictureInPicture.window.close();
+            return;
+          }
+
+          const pipWindow = await window.documentPictureInPicture.requestWindow({
+            width: mainVideo.clientWidth || 640,
+            height: mainVideo.clientHeight || 360,
+          });
+
+          [...document.styleSheets].forEach((styleSheet) => {
+            try {
+              const cssRules = [...styleSheet.cssRules].map((rule) => rule.cssText).join('');
+              const style = document.createElement('style');
+              style.textContent = cssRules;
+              pipWindow.document.head.appendChild(style);
+            } catch (e) {
+              const link = document.createElement('link');
+              link.rel = 'stylesheet';
+              link.type = styleSheet.type;
+              link.media = styleSheet.media;
+              link.href = styleSheet.href;
+              pipWindow.document.head.appendChild(link);
+            }
+          });
+
+          const videoWrapper = document.querySelector('.video-wrapper');
+          videoWrapper.classList.add('in-pip');
+          pipWindow.document.body.appendChild(videoWrapper);
+          pipWindow.document.body.style.margin = '0';
+          pipWindow.document.body.style.overflow = 'hidden';
+          pipWindow.document.body.style.backgroundColor = '#000';
+
+          pipWindow.addEventListener('pagehide', () => {
+            videoWrapper.classList.remove('in-pip');
+            const watchMain = document.querySelector('.watch-main');
+            watchMain.insertBefore(videoWrapper, document.querySelector('.video-meta-bar'));
+          });
+
+        } catch (error) {
+          console.error('Document PiP エラー:', error);
         }
-      } catch (error) {
-        console.error('PiPエラー:', error);
+      } 
+      // 非対応ブラウザ用の従来のPiP
+      else if (document.pictureInPictureEnabled) {
+        try {
+          if (document.pictureInPictureElement) {
+            await document.exitPictureInPicture();
+          } else {
+            alert('お使いのブラウザは「弾幕付きのPiP」に未対応です。動画のみのPiPになります。（ChromeやEdgeをご利用ください）');
+            await mainVideo.requestPictureInPicture();
+          }
+        } catch (error) {
+          console.error('PiPエラー:', error);
+        }
+      } else {
+        alert('お使いのブラウザはPiP機能をサポートしていません。');
       }
     });
 
@@ -783,7 +885,6 @@
         await updateDoc(doc(db, 'videoStats', statsDocId(currentVideoId)), { likes: increment(1) });
         likeCountEl.textContent = (parseInt(likeCountEl.textContent, 10) || 0) + 1;
         
-        // CSSアニメーションを再発火させるため、一度外して付け直す
         likeBtn.classList.remove('active-like');
         void likeBtn.offsetWidth; 
         likeBtn.classList.add('active-like');
@@ -942,7 +1043,6 @@
       
       let finalThumbUrl = "";
       
-      // 【追加】サムネイル画像が選ばれていれば先にアップロード
       if (thumbInput.files && thumbInput.files[0]) {
         saveBtn.textContent = 'サムネイル送信中...';
         try {
@@ -957,7 +1057,6 @@
 
       const storageRef = ref(storage, 'videos/' + selectedFile.name);
       
-      // 動画のメタデータにユーザー情報とサムネイルURLを記録
       const metadata = { 
         customMetadata: { 
           title: videoTitleInput.value, 
