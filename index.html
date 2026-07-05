@@ -15,8 +15,12 @@
     .dropdown-menu.active { display: block; }
     .menu-item { padding: 12px 16px; display: flex; align-items: center; gap: 12px; cursor: pointer; font-size: 14px; }
     .menu-item:hover { background-color: #f2f2f2; }
+    
+    /* ヘッダーのユーザー情報周りの修正 */
     #userInfo { display: none; align-items: center; gap: 10px; }
-    #channelNameDisplay { font-weight: bold; font-size: 14px; }
+    #userProfileAvatar { width: 32px; height: 32px; border-radius: 50%; background-color: #065fd4; color: white; display: flex; align-items: center; justify-content: center; font-weight: bold; cursor: pointer; font-size: 16px; }
+    #channelNameDisplay { font-weight: bold; font-size: 14px; cursor: pointer; }
+    #channelNameDisplay:hover { text-decoration: underline; }
 
     /* モーダル共通 */
     .modal-overlay { display: none; position: fixed; top: 0; left: 0; width: 100%; height: 100%; background-color: rgba(0,0,0,0.5); z-index: 1000; justify-content: center; align-items: center; }
@@ -158,7 +162,7 @@
 <body>
 
   <header>
-    <div class="logo" id="logoHome">▶ 日本動画（ベータ版）</div>
+    <div class="logo" id="logoHome">▶ エンタメ動画（ベータ版）</div>
     <div class="header-actions">
       <button id="createBtn" class="create-btn">＋ 作成</button>
       <div id="createMenu" class="dropdown-menu">
@@ -166,7 +170,9 @@
       </div>
       <button id="loginOpenBtn" class="create-btn">ログイン</button>
       <div id="userInfo">
-        <span id="channelNameDisplay"></span>
+        <!-- ログインアイコンとプロフィール導線を追加 -->
+        <div id="userProfileAvatar" title="マイプロフィールを見る"></div>
+        <span id="channelNameDisplay" title="マイプロフィールを見る"></span>
         <button id="logoutBtn" class="create-btn">ログアウト</button>
       </div>
     </div>
@@ -186,7 +192,7 @@
     </div>
   </div>
 
-  <!-- チャンネル専用画面 -->
+  <!-- チャンネル（プロフィール）専用画面 -->
   <div id="channelScreen" class="channel-container" style="display: none;">
     <h2 id="channelPageTitle" class="list-heading" style="font-size:24px; text-align:left; margin-bottom:24px;"></h2>
     <div id="channelGrid" class="video-grid"></div>
@@ -332,7 +338,6 @@
   </div>
 
   <script type="module">
-    // Firebaseモジュールに GoogleAuthProvider と signInWithPopup を追加
     import { initializeApp } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-app.js";
     import { getStorage, ref, uploadBytes, uploadBytesResumable, getDownloadURL, listAll, getMetadata, deleteObject } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-storage.js";
     import { getFirestore, collection, addDoc, query, where, onSnapshot, serverTimestamp, doc, getDoc, setDoc, updateDoc, deleteDoc, increment } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore.js";
@@ -352,7 +357,7 @@
     const storage = getStorage(app);
     const db = getFirestore(app);
     const auth = getAuth(app);
-    const googleProvider = new GoogleAuthProvider(); // Googleログイン用の準備
+    const googleProvider = new GoogleAuthProvider(); 
 
     function escapeHtml(str) {
       const div = document.createElement('div');
@@ -425,6 +430,7 @@
     const loginOpenBtn = document.getElementById('loginOpenBtn');
     const userInfo = document.getElementById('userInfo');
     const channelNameDisplay = document.getElementById('channelNameDisplay');
+    const userProfileAvatar = document.getElementById('userProfileAvatar'); // 追加
     const logoutBtn = document.getElementById('logoutBtn');
     const authModal = document.getElementById('authModal');
     const closeAuthModalBtn = document.getElementById('closeAuthModalBtn');
@@ -442,6 +448,10 @@
     let currentVideoId = "";
     let unsubscribeComments = null;
     let currentUser = null; 
+    
+    // 評価トグル用の状態管理
+    let hasLiked = false;
+    let hasDisliked = false;
 
     nicknameInput.value = localStorage.getItem('mytube_nickname') || '';
     updateAvatarLetter();
@@ -460,6 +470,24 @@
     function getAuthorUid() {
       return currentUser ? currentUser.uid : null;
     }
+
+    // ==========================================
+    // マイプロフィール表示機能
+    // ==========================================
+    function showMyProfile() {
+      if (!currentUser) return;
+      homeScreen.style.display = 'none';
+      watchScreen.style.display = 'none';
+      channelScreen.style.display = 'block';
+      
+      channelPageTitle.textContent = 'マイプロフィール（' + currentUser.channelName + '）';
+      const userVideos = allVideos.filter(v => v.uploaderUid === currentUser.uid);
+      renderGrid(userVideos, channelGrid);
+      window.scrollTo({ top: 0, behavior: 'smooth' });
+    }
+    userProfileAvatar.addEventListener('click', showMyProfile);
+    channelNameDisplay.addEventListener('click', showMyProfile);
+
 
     // ==========================================
     // 認証処理（メール＆Google）
@@ -498,7 +526,6 @@
       }
     }
 
-    // メールアドレス認証
     authSubmitBtn.addEventListener('click', async () => {
       const email = authEmail.value.trim();
       const password = authPassword.value;
@@ -523,14 +550,11 @@
       }
     });
 
-    // Google認証
     googleAuthBtn.addEventListener('click', async () => {
       authErrorMsg.style.display = 'none';
       try {
         const result = await signInWithPopup(auth, googleProvider);
         const user = result.user;
-        
-        // 初めてのGoogleログインの場合、ユーザーデータを作成する
         const userRef = doc(db, 'users', user.uid);
         const snap = await getDoc(userRef);
         if (!snap.exists()) {
@@ -542,7 +566,6 @@
         }
         authModal.classList.remove('active');
       } catch (error) {
-        console.error('Google認証エラー:', error);
         authErrorMsg.textContent = 'Googleログインに失敗しました。';
         authErrorMsg.style.display = 'block';
       }
@@ -558,6 +581,7 @@
         loginOpenBtn.style.display = 'none';
         userInfo.style.display = 'flex';
         channelNameDisplay.textContent = channelName;
+        userProfileAvatar.textContent = channelName.charAt(0).toUpperCase(); // ヘッダーアイコン更新
         nicknameArea.style.display = 'none';
         channelBadge.style.display = 'block';
         channelBadge.textContent = '「' + channelName + '」としてコメントします';
@@ -643,7 +667,6 @@
       applyFilterAndSort();
     });
 
-    // 汎用のグリッド描画（ホーム用、チャンネル用）
     function renderGrid(list, container) {
       if (list.length === 0) {
         container.innerHTML = '<p class="empty-list-msg">動画が見つかりません。</p>';
@@ -698,7 +721,6 @@
       renderGrid(userVideos, channelGrid);
       window.scrollTo({ top: 0, behavior: 'smooth' });
       
-      // PiP起動中でなければ再生を止める
       const isStandardPiP = document.pictureInPictureElement === mainVideo;
       const isDocumentPiP = ('documentPictureInPicture' in window) && window.documentPictureInPicture.window;
       if (!isStandardPiP && !isDocumentPiP) {
@@ -736,7 +758,6 @@
     // 画面切り替え（視聴・ホーム）
     // ==========================================
     async function watchVideo(videoData) {
-      // Document PiP が開いていれば閉じる（レイアウト崩れ防止）
       if ('documentPictureInPicture' in window && window.documentPictureInPicture.window) {
         window.documentPictureInPicture.window.close();
       }
@@ -758,12 +779,15 @@
       danmakuContainer.innerHTML = ''; videoComments = []; lastTime = 0;
       danmakuInput.value = ""; danmakuSubmitBtn.disabled = true;
 
+      // 動画を開くたびに評価状態をリセット
+      hasLiked = false;
+      hasDisliked = false;
       likeBtn.disabled = true; dislikeBtn.disabled = true;
       likeBtn.classList.remove('active-like'); dislikeBtn.classList.remove('active-dislike');
       viewCountEl.textContent = '- 回視聴'; likeCountEl.textContent = '0'; dislikeCountEl.textContent = '0';
 
       loadComments();
-      await loadStats();
+      await loadStats(); // ここで再生回数が+1されます
       renderSidebar(currentVideoId);
     }
 
@@ -776,7 +800,6 @@
       channelScreen.style.display = 'none';
       homeScreen.style.display = 'block';
       
-      // どちらのPiPも起動していなければ再生を止める（PiP中は再生を継続！）
       const isStandardPiP = document.pictureInPictureElement === mainVideo;
       const isDocumentPiP = ('documentPictureInPicture' in window) && window.documentPictureInPicture.window;
       if (!isStandardPiP && !isDocumentPiP) {
@@ -792,7 +815,6 @@
     // PiP（ピクチャーインピクチャー）機能
     // ==========================================
     pipBtn.addEventListener('click', async () => {
-      // 最新の「Document Picture-in-Picture API」対応ブラウザの場合
       if ('documentPictureInPicture' in window) {
         try {
           if (window.documentPictureInPicture.window) {
@@ -838,7 +860,6 @@
           console.error('Document PiP エラー:', error);
         }
       } 
-      // 非対応ブラウザ用の従来のPiP
       else if (document.pictureInPictureEnabled) {
         try {
           if (document.pictureInPictureElement) {
@@ -856,18 +877,20 @@
     });
 
     // ==========================================
-    // 再生回数・高評価／低評価（エフェクト付き）
+    // 再生回数・高評価／低評価（トグル対応）
     // ==========================================
     async function loadStats() {
       const statsRef = doc(db, 'videoStats', statsDocId(currentVideoId));
       try {
         const snap = await getDoc(statsRef);
         if (!snap.exists()) {
+          // 初回再生時
           await setDoc(statsRef, { views: 1, likes: 0, dislikes: 0 });
           viewCountEl.textContent = '1 回視聴';
           likeCountEl.textContent = '0';
           dislikeCountEl.textContent = '0';
         } else {
+          // 動画を開くたびに再生回数を+1する処理
           const data = snap.data();
           await updateDoc(statsRef, { views: increment(1) });
           viewCountEl.textContent = ((data.views || 0) + 1) + ' 回視聴';
@@ -882,12 +905,28 @@
       if (!currentVideoId) return;
       likeBtn.disabled = true;
       try {
-        await updateDoc(doc(db, 'videoStats', statsDocId(currentVideoId)), { likes: increment(1) });
-        likeCountEl.textContent = (parseInt(likeCountEl.textContent, 10) || 0) + 1;
-        
-        likeBtn.classList.remove('active-like');
-        void likeBtn.offsetWidth; 
-        likeBtn.classList.add('active-like');
+        const statsRef = doc(db, 'videoStats', statsDocId(currentVideoId));
+        if (!hasLiked) {
+          // 高評価を追加
+          await updateDoc(statsRef, { likes: increment(1) });
+          likeCountEl.textContent = (parseInt(likeCountEl.textContent, 10) || 0) + 1;
+          likeBtn.classList.add('active-like');
+          hasLiked = true;
+          
+          // もし低評価が押されていたら解除する
+          if (hasDisliked) {
+            await updateDoc(statsRef, { dislikes: increment(-1) });
+            dislikeCountEl.textContent = Math.max(0, (parseInt(dislikeCountEl.textContent, 10) || 0) - 1);
+            dislikeBtn.classList.remove('active-dislike');
+            hasDisliked = false;
+          }
+        } else {
+          // 高評価を解除
+          await updateDoc(statsRef, { likes: increment(-1) });
+          likeCountEl.textContent = Math.max(0, (parseInt(likeCountEl.textContent, 10) || 0) - 1);
+          likeBtn.classList.remove('active-like');
+          hasLiked = false;
+        }
       } catch (error) {} 
       finally { likeBtn.disabled = false; }
     });
@@ -896,12 +935,28 @@
       if (!currentVideoId) return;
       dislikeBtn.disabled = true;
       try {
-        await updateDoc(doc(db, 'videoStats', statsDocId(currentVideoId)), { dislikes: increment(1) });
-        dislikeCountEl.textContent = (parseInt(dislikeCountEl.textContent, 10) || 0) + 1;
-        
-        dislikeBtn.classList.remove('active-dislike');
-        void dislikeBtn.offsetWidth; 
-        dislikeBtn.classList.add('active-dislike');
+        const statsRef = doc(db, 'videoStats', statsDocId(currentVideoId));
+        if (!hasDisliked) {
+          // 低評価を追加
+          await updateDoc(statsRef, { dislikes: increment(1) });
+          dislikeCountEl.textContent = (parseInt(dislikeCountEl.textContent, 10) || 0) + 1;
+          dislikeBtn.classList.add('active-dislike');
+          hasDisliked = true;
+          
+          // もし高評価が押されていたら解除する
+          if (hasLiked) {
+            await updateDoc(statsRef, { likes: increment(-1) });
+            likeCountEl.textContent = Math.max(0, (parseInt(likeCountEl.textContent, 10) || 0) - 1);
+            likeBtn.classList.remove('active-like');
+            hasLiked = false;
+          }
+        } else {
+          // 低評価を解除
+          await updateDoc(statsRef, { dislikes: increment(-1) });
+          dislikeCountEl.textContent = Math.max(0, (parseInt(dislikeCountEl.textContent, 10) || 0) - 1);
+          dislikeBtn.classList.remove('active-dislike');
+          hasDisliked = false;
+        }
       } catch (error) {} 
       finally { dislikeBtn.disabled = false; }
     });
