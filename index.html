@@ -575,11 +575,22 @@
 
     onAuthStateChanged(auth, async (user) => {
       if (user) {
-        const snap = await getDoc(doc(db, 'users', user.uid));
-        const channelName = snap.exists() ? snap.data().channelName : 'ゲストチャンネル';
+        let channelName = 'ゲストチャンネル';
+        // データベースの読み込みでエラーが起きても止まらないように try-catch を追加
+        try {
+          const snap = await getDoc(doc(db, 'users', user.uid));
+          if (snap.exists()) {
+            channelName = snap.data().channelName;
+          }
+        } catch (error) {
+          console.error("ユーザー情報の取得に失敗しました:", error);
+          // エラー時はとりあえずGoogleアカウントの名前か、デフォルト名を使う
+          channelName = user.displayName || '名無しユーザー';
+        }
+
         currentUser = { uid: user.uid, channelName };
-        loginOpenBtn.style.display = 'none';
-        userInfo.style.display = 'flex';
+        loginOpenBtn.style.display = 'none'; // ログインボタンを隠す
+        userInfo.style.display = 'flex'; // アイコンエリアを表示する
         channelNameDisplay.textContent = channelName;
         userProfileAvatar.textContent = channelName.charAt(0).toUpperCase(); // ヘッダーアイコン更新
         nicknameArea.style.display = 'none';
