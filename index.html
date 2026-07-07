@@ -679,9 +679,12 @@
       }
     }
 
-    async function applyFilterAndSort() {
+   async function applyFilterAndSort() {
       const keyword = searchInput.value.trim().toLowerCase();
-      let list = keyword ? allVideos.filter(v => v.title.toLowerCase().includes(keyword)) : allVideos.slice();
+      // ↓ ここで currentUserBlocks に含まれるUIDの動画を除外する
+      let list = allVideos.filter(v => !currentUserBlocks.includes(v.uploaderUid));
+      if (keyword) list = list.filter(v => v.title.toLowerCase().includes(keyword));
+      // ... 以降の popular の並び替え処理などはそのまま
 
       if (currentSort === 'popular') {
         const withScore = await Promise.all(list.map(async (v) => {
@@ -838,7 +841,7 @@
       likeBtn.classList.remove('active-like'); dislikeBtn.classList.remove('active-dislike');
       viewCountEl.textContent = '- 回視聴'; likeCountEl.textContent = '0'; dislikeCountEl.textContent = '0';
 
-      loadComments();
+  loadComments();
       await loadStats(); // ここで再生回数が+1されます
       renderSidebar(currentVideoId);
     }
@@ -1059,8 +1062,11 @@
       unsubscribeComments = onSnapshot(q, (snapshot) => {
         videoComments = [];
         const comments = [];
-        snapshot.forEach((docSnap) => {
+      snapshot.forEach((docSnap) => {
           const data = { id: docSnap.id, ...docSnap.data() };
+          // ブロックしている人のコメントは配列に入れない（無視する）
+          if (currentUserBlocks.includes(data.authorUid)) return; 
+
           if (data.type === "danmaku") { videoComments.push(data); } else { comments.push(data); }
         });
 
@@ -1145,6 +1151,54 @@
     });
 
     saveBtn.addEventListener('click', async () => {
+      import { getFirestore, collection, addDoc, query, where, onSnapshot, serverTimestamp, doc, getDoc, setDoc, updateDoc, deleteDoc, increment, arrayUnion } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore.js";
+
+    // --- 通報機能 ---
+    reportBtn.addEventListener('click', async () => {
+      if (!currentUser) return alert('通報するにはログインしてください。');
+      const reason = prompt('通報の理由を入力してください（例：著作権侵害、スパム、不適切な表現など）\n※管理者が24時間以内に確認します。');
+      if (!reason) return; // キャンセルした場合は何もしない
+
+      try {
+        await addDoc(collection(db, 'reports'), {
+          videoId: currentVideoId,
+          videoTitle: mainTitle.textContent,
+          uploaderUid: uploaderNameEl.dataset.uid,
+          reportedBy: currentUser.uid,
+          reason: reason,
+          createdAt: serverTimestamp(),
+          status: 'pending' // 未確認状態
+        });
+        alert('通報が完了しました。ご協力ありがとうございます。');
+      } catch (error) {
+        alert('通報に失敗しました。');
+      }
+    });
+
+    // --- ブロック機能 ---
+    blockUserBtn.addEventListener('click', async () => {
+      if (!currentUser) return alert('ブロックするにはログインしてください。');
+      const targetUid = uploaderNameEl.dataset.uid;
+      if (targetUid === currentUser.uid) return alert('自分自身はブロックできません。');
+      
+      if (!confirm('このユーザーをブロックしますか？\n以降、このユーザーの動画やコメントは表示されなくなります。')) return;
+
+      try {
+        // 自分のデータベースに相手のUIDを追加する
+        await updateDoc(doc(db, 'users', currentUser.uid), {
+          blockedUids: arrayUnion(targetUid)
+        });
+        currentUserBlocks.push(targetUid); // 画面上も即座に反映
+        alert('ブロックしました。ホーム画面に戻ります。');
+        goHome(); // ブロックしたらホームに戻る
+      } catch (error) {
+        alert('ブロック処理に失敗しました。');
+      }
+    });
+
+    // 視聴画面を開いた時に、自分以外の動画ならブロックボタンを表示する処理を追加
+    // watchVideo(videoData) 関数の最後に以下を追記します:
+    // blockUserBtn.style.display = (currentUser && currentUser.uid !== videoData.uploaderUid) ? 'block' : 'none';
       if (!selectedFile) return;
       saveBtn.disabled = true;
       
