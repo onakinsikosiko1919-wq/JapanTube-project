@@ -3,7 +3,7 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>動画サイト - Googleログイン＆弾幕PiP対応版</title>
+  <title>おふざけ動画</title>
   <style>
     body { margin: 0; font-family: 'Helvetica Neue', Arial, sans-serif; background-color: #f9f9f9; color: #0f0f0f; }
     header { display: flex; justify-content: space-between; align-items: center; padding: 10px 24px; height: 56px; background-color: white; box-shadow: 0 1px 3px rgba(0,0,0,0.1); position: sticky; top: 0; z-index: 100;}
@@ -157,6 +157,39 @@
     .danmaku-input-area input { flex: 1; padding: 10px; border: 1px solid #ccc; border-radius: 20px; font-size: 14px; }
     .danmaku-input-area button { background-color: #065fd4; color: white; border: none; padding: 10px 20px; border-radius: 20px; font-weight: bold; cursor: pointer; }
     .danmaku-input-area button:disabled { background-color: #ccc; cursor: not-allowed; }
+  　.danmaku-input-area button:disabled { background-color: #ccc; cursor: not-allowed; }
+
+    /* ↓↓↓ ここから下に貼り付ける ↓↓↓ */
+    /* ========== スマホ用UI調整 ========== */
+    @media (max-width: 600px) {
+      /* 動画一覧を1列にして見やすくする */
+      .video-grid {
+        grid-template-columns: 1fr;
+        gap: 16px;
+      }
+      /* ヘッダー周りをコンパクトにする */
+      .logo {
+        font-size: 16px;
+      }
+      .header-actions {
+        gap: 8px;
+      }
+      .create-btn {
+        padding: 6px 10px;
+        font-size: 12px;
+      }
+      /* モーダル（アップロードやログイン画面）の幅をスマホに合わせる */
+      .modal-content {
+        width: 95%;
+        height: 90vh;
+      }
+      /* 視聴画面のタイトルなどをスマホサイズに */
+      .video-title {
+        font-size: 16px;
+      }
+    }
+    /* ↑↑↑ ここまで ↑↑↑ */
+
   </style>
 </head>
 <body>
