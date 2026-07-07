@@ -241,15 +241,19 @@
           <div id="danmakuContainer" class="danmaku-container"></div>
         </div>
 
-        <div class="video-meta-bar">
+       <div class="video-meta-bar">
           <div class="title-area">
             <h1 class="video-title" id="mainTitle">動画のタイトル</h1>
-            <div id="uploaderName" class="uploader-link">チャンネル名</div>
+            <div style="display: flex; align-items: center; gap: 12px; margin-bottom: 16px;">
+              <div id="uploaderName" class="uploader-link" style="margin-bottom: 0;">チャンネル名</div>
+              <button id="blockUserBtn" class="rate-btn" style="font-size: 12px; padding: 4px 10px; display: none;">🚫 ブロック</button>
+            </div>
           </div>
           <div class="meta-actions">
             <span id="viewCount">- 回視聴</span>
             <button id="likeBtn" class="rate-btn" disabled>👍 <span id="likeCount">0</span></button>
             <button id="dislikeBtn" class="rate-btn" disabled>👎 <span id="dislikeCount">0</span></button>
+            <button id="reportBtn" class="rate-btn" style="color: #cc0000;">🚨 通報</button>
             <button id="pipBtn" class="pip-btn">◱ PiPで弾幕再生</button>
           </div>
         </div>
@@ -458,6 +462,9 @@
     const dislikeBtn = document.getElementById('dislikeBtn');
     const dislikeCountEl = document.getElementById('dislikeCount');
     const pipBtn = document.getElementById('pipBtn');
+    const blockUserBtn = document.getElementById('blockUserBtn');
+    const reportBtn = document.getElementById('reportBtn');
+    let currentUserBlocks = []; // 自分がブロックした人のUIDリスト
 
     // ログイン関連
     const loginOpenBtn = document.getElementById('loginOpenBtn');
@@ -606,18 +613,19 @@
 
     logoutBtn.addEventListener('click', () => signOut(auth));
 
-    onAuthStateChanged(auth, async (user) => {
+   onAuthStateChanged(auth, async (user) => {
       if (user) {
         let channelName = 'ゲストチャンネル';
-        // データベースの読み込みでエラーが起きても止まらないように try-catch を追加
+        currentUserBlocks = []; // リセット
         try {
           const snap = await getDoc(doc(db, 'users', user.uid));
           if (snap.exists()) {
             channelName = snap.data().channelName;
+            // データベースからブロックリストを取得（なければ空の配列）
+            currentUserBlocks = snap.data().blockedUids || [];
           }
         } catch (error) {
-          console.error("ユーザー情報の取得に失敗しました:", error);
-          // エラー時はとりあえずGoogleアカウントの名前か、デフォルト名を使う
+          console.error("ユーザー情報の取得に失敗:", error);
           channelName = user.displayName || '名無しユーザー';
         }
 
