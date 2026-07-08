@@ -322,6 +322,37 @@
     </div>
   </div>
 
+  <!-- ログイン／新規登録モーダル（欠落していたため復元） -->
+  <div id="authModal" class="modal-overlay">
+    <div class="modal-content auth-modal-content">
+      <div class="modal-header">
+        <h2 id="authModalTitle">ログイン</h2>
+        <button id="closeAuthModalBtn" class="close-btn">✕</button>
+      </div>
+      <div class="auth-body">
+        <button id="googleAuthBtn" class="google-btn">Googleでログイン</button>
+        <div class="input-group" id="signupNameGroup" style="display:none;">
+          <label>チャンネル名</label>
+          <input type="text" id="authChannelName" placeholder="表示される名前">
+        </div>
+        <div class="input-group">
+          <label>メールアドレス</label>
+          <input type="email" id="authEmail">
+        </div>
+        <div class="input-group">
+          <label>パスワード（6文字以上）</label>
+          <input type="password" id="authPassword">
+        </div>
+        <p class="auth-error" id="authErrorMsg"></p>
+        <button id="authSubmitBtn" class="save-btn">メールアドレスでログイン</button>
+        <p class="auth-switch">
+          <span id="authToggleText">アカウントをお持ちでない方は</span>
+          <a id="authToggleLink">新規登録</a>
+        </p>
+      </div>
+    </div>
+  </div>
+
   <script type="module">
     import { initializeApp } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-app.js";
     import { getStorage, ref, uploadBytes, uploadBytesResumable, getDownloadURL, listAll, getMetadata, deleteObject } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-storage.js";
